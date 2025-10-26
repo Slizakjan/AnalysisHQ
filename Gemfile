@@ -6,3 +6,7 @@ gem "bcrypt"
 gem "dotenv"
 gem "json"
 gem "securerandom"
+
+# pro spuštění serveru
+gem "puma"
+gem "rack"
