@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>AnalysisHQ Authentication</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<div class="form-container">
+  <h2>Authentication</h2>
+
+  <!-- LOGIN FORM -->
+  <form id="loginForm" class="active">
+    <input id="login-username" placeholder="Username">
+    <input id="login-password" placeholder="Password" type="password">
+    <button type="button" onclick="login()">Login</button>
+    <p>Don't have an account? <a onclick="toggleForm()">Register</a></p>
+  </form>
+
+  <!-- REGISTER FORM -->
+  <form id="registerForm">
+    <input id="reg-username" placeholder="Username">
+    <input id="reg-password" placeholder="Password" type="password">
+    <button type="button" onclick="register()">Register</button>
+    <p>Already have an account? <a onclick="toggleForm()">Login</a></p>
+  </form>
+
+  <div id="message"></div>
+</div>
+
+<script>
+function toggleForm() {
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+  loginForm.classList.toggle('active');
+  registerForm.classList.toggle('active');
+  document.getElementById("message").innerText = '';
+}
+
+// --- LOGIN ---
+async function login() {
+  const username = document.getElementById("login-username").value;
+  const password = document.getElementById("login-password").value;
+
+  try {
+    const res = await fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await res.json();
+
+    if (data.status === 'ok') {
+      localStorage.setItem('api_key', data.api_key);
+      localStorage.setItem('role', data.role);
+      document.getElementById("message").style.color = 'green';
+      document.getElementById("message").innerText = `Login successful! Role: ${data.role}`;
+      setTimeout(() => { 
+        document.querySelector('.form-container').style.display = 'none';
+        document.getElementById('dashboard-container').style.display = 'block';
+      }, 500);
+    } else {
+      document.getElementById("message").style.color = '#d9534f';
+      document.getElementById("message").innerText = data.error || 'Unknown error';
+    }
+  } catch (err) {
+    console.error(err);
+    document.getElementById("message").style.color = '#d9534f';
+    document.getElementById("message").innerText = 'Server error, try again.';
+  }
+}
+
+// --- REGISTER ---
+async function register() {
+  const username = document.getElementById("reg-username").value;
+  const password = document.getElementById("reg-password").value;
+
+  try {
+    const res = await fetch('/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await res.json();
+
+    if (data.status === 'ok') {
+      document.getElementById("message").style.color = 'green';
+      document.getElementById("message").innerText = `Account created! Your API key: ${data.api_key}`;
+      toggleForm(); // přepne na login po registraci
+    } else {
+      document.getElementById("message").style.color = '#d9534f';
+      document.getElementById("message").innerText = data.error || 'Unknown error';
+    }
+  } catch (err) {
+    console.error(err);
+    document.getElementById("message").style.color = '#d9534f';
+    document.getElementById("message").innerText = 'Server error, try again.';
+  }
+}
+</script>
+
+</body>
+</html>

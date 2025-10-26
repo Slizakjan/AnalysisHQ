@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>AnalysisHQ Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 50px; }
+    #welcome { font-size: 1.2em; margin-bottom: 20px; }
+    button { padding: 8px 12px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="welcome">Welcome to your dashboard!</div>
+  <div>
+    <button onclick="showStatus()">Check API Status</button>
+    <div id="status"></div>
+  </div>
+
+  <script>
+    async function showStatus() {
+      const res = await fetch('/status', {
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('api_key') }
+      });
+      const data = await res.json();
+      document.getElementById('status').innerText = JSON.stringify(data, null, 2);
+    }
+  </script>
+</body>
+</html>
