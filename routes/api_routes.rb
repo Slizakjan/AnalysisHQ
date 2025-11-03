@@ -24,16 +24,24 @@ class ApiRoutes < Sinatra::Base
       session
     end
 
+    # Konstanta, která povolí přístup i bez API klíče
+    ALLOW_EVERYONE = true   # TODO: delete this temp. feature
+    
     # Vrací uživatele podle API klíče
     def api_user
+      if ALLOW_EVERYONE
+        # fallback uživatel pro allow_everyone
+        return { id: nil, role: "guest" }
+      end
+    
       api_key_hash = request.env["HTTP_API_KEY_HASH"] || request.env["HTTP_API_KEY"]
       halt 401, { status: "error", message: "Missing API key" }.to_json unless api_key_hash
-
+    
       user = Database.get_user_by_api_key(api_key_hash)
       halt 403, { status: "error", message: "Invalid API key or access denied" }.to_json unless user
       halt 403, { status: "error", message: "Account is locked" }.to_json if user[:locked]
       halt 403, { status: "error", message: "Unverified account" }.to_json if user[:role] == "unverified"
-
+    
       user
     end
   end
