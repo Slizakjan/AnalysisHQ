@@ -5,6 +5,7 @@ ruby "3.4.7"
 # Web framework
 gem "sinatra"
 gem "sinatra-contrib" # json, cookies, atd.
+gem 'puma'        # web server
 
 # PostgreSQL
 gem "pg"
