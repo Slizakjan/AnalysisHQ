@@ -50,9 +50,26 @@ class ApiRoutes < Sinatra::Base
   # Endpoint pro logování akcí (vyžaduje API klíč)
   # ----------------------
   post '/api/log' do
-    user = api_user  # ✅ ověří API klíč, roli i lock status
+    content_type :json
 
+    # --- Získání uživatele přes API klíč, fallback pokud ALLOW_EVERYONE ---
     begin
+      user = api_user  # metoda, která vyhazuje Sinatra::Halt pokud API key neexistuje
+    rescue Sinatra::Halt => e
+      if ALLOW_EVERYONE
+        # fallback uživatel pro testování bez klíče
+        user = { id: nil, role: "guest", api_key_hash: "guest" }
+      else
+        raise e
+      end
+    end
+
+    # --- Parsování JSON payload ---
+    begin
+      # Z headeru
+      api_key_hash = request.env["HTTP_API_KEY_HASH"]
+
+      # Z těla
       data = JSON.parse(request.body.read)
       test_name   = data["test_name"]
       test_id     = data["test_id"]
@@ -68,17 +85,16 @@ class ApiRoutes < Sinatra::Base
       halt 400, { status: "error", message: "Invalid JSON" }.to_json
     end
 
-    # ✅ Povinná validace
+    # --- Povinná validace ---
     if !question || question.strip.empty?
       halt 400, { status: "error", message: "Missing 'question'" }.to_json
     end
 
-    # ✅ Pro uzavřené otázky musí být k dispozici možnosti
     if ["radio", "checkbox"].include?(type) && (!options.is_a?(Array) || options.empty?)
       halt 400, { status: "error", message: "Closed question must include 'answers' array" }.to_json
     end
 
-    # === Uložení do question_bank ===
+    # --- Uložení do question_bank ---
     begin
       Database.insert_question(
         user_id: user[:id],
@@ -94,14 +110,14 @@ class ApiRoutes < Sinatra::Base
       halt 500, { status: "error", message: "DB error inserting question: #{e.message}" }.to_json
     end
 
-    # === Uložení logu ===
+    # --- Uložení logu ---
     clean_metadata = metadata.dup
     clean_metadata.delete("question")
     clean_metadata.delete("answers")
 
     begin
       Database.insert_log(
-        user[:api_key_hash],
+        api_key_hash || user[:api_key_hash],  # prefer header, fallback pokud nil
         test_id,
         answer_id,
         action,
@@ -112,44 +128,6 @@ class ApiRoutes < Sinatra::Base
     end
 
     { status: "ok", message: "Log saved successfully" }.to_json
-  end
-
-  # ----------------------
-  # Endpoint pro párování API klíče k uživateli (vyžaduje aktivní session)
-  # ----------------------
-  post '/api/pair_user' do
-    user = current_user  # vyžaduje aktivní session
-
-    halt 403, { status: "error", message: "Account is locked" }.to_json if user[:locked]
-
-    allowed_roles = ["user", "manager", "admin"]
-    halt 403, { status: "error", message: "Insufficient role" }.to_json unless allowed_roles.include?(user[:role])
-
-    header_api_key = request.env["HTTP_API_KEY_HASH"] || request.env["HTTP_API_KEY"]
-
-    begin
-      data = JSON.parse(request.body.read)
-      api_key_hash = data["api_key_hash"]
-      action       = data["action"] || "add"
-    rescue JSON::ParserError
-      halt 400, { status: "error", message: "Invalid JSON" }.to_json
-    end
-
-    if header_api_key != api_key_hash
-      halt 400, { status: "error", message: "Header and body API key mismatch" }.to_json
-    end
-
-    unless action == "add"
-      halt 400, { status: "error", message: "Unsupported action" }.to_json
-    end
-
-    begin
-      Database.pair_user_api_key(user[:id], api_key_hash)
-    rescue PG::Error => e
-      halt 500, { status: "error", message: "Database error: #{e.message}" }.to_json
-    end
-
-    { status: "ok", message: "API key paired successfully" }.to_json
   end
 
   # ----------------------
