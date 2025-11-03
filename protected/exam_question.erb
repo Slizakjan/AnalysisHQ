@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>Otázka | <%= @test[:exam_name] %></title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center px-4 py-6 text-gray-800">
+
+<main class="w-full max-w-3xl">
+
+  <!-- Header -->
+  <header class="text-center mb-6">
+    <h1 class="text-2xl sm:text-3xl font-semibold text-emerald-600 mb-1"><%= @test[:exam_name] %></h1>
+    <p class="text-gray-500 text-sm">Otázka <%= @question_index + 1 %> / <%= @questions_count %></p>
+  </header>
+
+  <!-- Tlačítko zpět -->
+  <div class="mb-4">
+    <a href="/exam/<%= @test[:test_id] %>"
+       class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition">← Zpět na otázky</a>
+  </div>
+
+  <!-- Question Card -->
+  <section class="bg-white rounded-xl shadow-md p-6 mb-6">
+    <h2 class="text-lg font-medium text-gray-900 mb-4">Otázka</h2>
+    <p class="text-gray-700 mb-6"><%= @question[:question]['question'] rescue 'Bez textu' %></p>
+
+    <h3 class="text-md font-semibold text-gray-900 mb-2">Možné odpovědi</h3>
+        <ul id="answersList" class="space-y-2">
+        <% @question[:answers].each_with_index do |ans, idx| %>
+            <% is_correct = @question[:answer].include?(ans.to_s.strip) %>
+            <% correct_class = is_correct ? 
+                'bg-emerald-100 text-emerald-800 font-semibold border border-emerald-300 p-2 rounded' : 
+                'bg-gray-100 text-gray-800 p-2 rounded' %>
+
+            <li class="answer-item <%= correct_class %> cursor-pointer p-2 rounded transition" 
+                data-index="<%= idx %>" data-answer="<%= ans %>">
+            <span class="mr-2 font-medium"><%= idx + 1 %>.</span> <%= ans %>
+            </li>
+        <% end %>
+        </ul>
+
+  </section>
+
+  <!-- Metadata / poznámky -->
+  <% if @question[:metadata] && !@question[:metadata].empty? %>
+    <section class="bg-gray-100 rounded-xl p-4 mb-6">
+      <h3 class="text-md font-semibold text-gray-900 mb-2">Další informace</h3>
+      <pre class="text-sm text-gray-700 overflow-x-auto"><%= JSON.pretty_generate(@question[:metadata]) %></pre>
+    </section>
+  <% end %>
+
+  <!-- Tlačítka pro admin/manager -->
+  <% if ["admin", "manager"].include?(@user[:role]) %>
+    <div class="flex justify-end mb-6 space-x-2">
+      <button id="editAnswerBtn"
+              class="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600 transition">
+        Upravit odpověď
+      </button>
+      <button id="cancelEditBtn" class="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition hidden">
+        Zrušit
+      </button>
+    </div>
+  <% end %>
+
+  <!-- Navigace mezi otázkami -->
+  <div id="questionNav" class="flex justify-between">
+    <% if @prev_question_id %>
+      <a href="/exam/<%= @test[:test_id] %>/<%= @prev_question_id %>"
+         class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300 transition">← Předchozí</a>
+    <% else %>
+      <span></span>
+    <% end %>
+
+    <% if @next_question_id %>
+      <a href="/exam/<%= @test[:test_id] %>/<%= @next_question_id %>"
+         class="px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600 transition">Další →</a>
+    <% end %>
+  </div>
+
+  <!-- Analýza AI / historie odpovědí -->
+    <section class="bg-gray-50 rounded-xl p-4 mb-6 shadow-inner">
+    <h3 class="text-md font-semibold text-gray-900 mb-2">Analýza / Historie odpovědí</h3>
+
+    <% logs = Database.get_logs_for_question(@test[:test_id], @question[:answer_id]) %>
+    <% if logs.any? %>
+        <% logs.each do |log| %>
+        <div class="border border-gray-200 rounded p-3 mb-3 bg-white">
+            <p class="text-sm text-gray-500 mb-2">
+            <span class="font-semibold">Akce:</span> <%= log[:action] %> | 
+            <span class="font-semibold">Odesláno:</span> <%= log[:created_at].strftime("%d.%m.%Y %H:%M:%S") %>
+            </p>
+
+            <% metadata = log[:metadata] || {} %>
+            <% queries = metadata["queries"] || [] %>
+            <% if queries.any? %>
+            <ul class="space-y-1 text-gray-700 text-sm">
+                <% queries.each_with_index do |q, idx| %>
+                <li class="p-1 border-b border-gray-100">
+                    <% if q["type"] == "search" %>
+                    <span class="font-medium">Vyhledávání <%= idx+1 %>:</span> 
+                    <%= q["query"] %> | Engine: <%= q["engine"] %> <br>
+                    <span class="italic text-gray-500">Shrnutí výsledku:</span> <%= q["result_summary"] || "Žádné shrnutí" %>
+                    <% else %>
+                    <span class="font-medium">Odpověď <%= idx+1 %>:</span> 
+                    [<%= q["type"] %>] <%= q["text"] %>
+                    <% if q["index"] %> (Index: <%= q["index"] %>) <% end %>
+                    <% end %>
+                </li>
+                <% end %>
+            </ul>
+            <% else %>
+            <p class="text-gray-400 italic">Žádné záznamy kroků.</p>
+            <% end %>
+        </div>
+        <% end %>
+    <% else %>
+        <p class="text-gray-400 italic">Pro tuto otázku nejsou k dispozici žádné logy.</p>
+    <% end %>
+    </section>
+
+
+</main>
+
+<script>
+let editMode = false;
+let selectedAnswerIndex = null;
+
+const editBtn = document.getElementById('editAnswerBtn');
+const cancelBtn = document.getElementById('cancelEditBtn');
+const saveBtn = document.createElement('button');
+saveBtn.textContent = "Uložit";
+saveBtn.className = "px-4 py-2 bg-emerald-500 text-white rounded hover:bg-emerald-600 transition";
+saveBtn.style.display = "none";
+
+if (editBtn) {
+  editBtn.addEventListener('click', () => {
+    editMode = true;
+    editBtn.style.display = 'none';
+    cancelBtn.style.display = 'inline-block';
+    saveBtn.style.display = 'inline-block';
+    document.querySelector('.flex.justify-end.mb-6').appendChild(saveBtn);
+
+    document.getElementById('questionNav').style.display = 'none';
+
+    const answersList = document.getElementById('answersList');
+    const existingAnswer = <%= (@question[:answer] || []).to_json %>;
+
+    // Pokud žádné odpovědi nebo jen jedna (otevřená odpověď)
+    if (answersList.querySelector('li.italic') || answersList.querySelectorAll('li.answer-item').length <= 1) {
+      let li = document.createElement('li');
+      li.innerHTML = `<input type="text" id="newAnswerInput" placeholder="Zadejte odpověď" 
+                        class="border p-2 rounded w-full" value="${existingAnswer.replace(/"/g, '&quot;')}">`;
+      answersList.appendChild(li);
+    }
+
+    document.querySelectorAll('#answersList .answer-item').forEach(item => {
+      item.classList.add('hover:bg-emerald-100');
+      item.addEventListener('click', selectAnswer);
+    });
+  });
+}
+
+
+if (cancelBtn) {
+  cancelBtn.addEventListener('click', () => {
+    editMode = false;
+    editBtn.style.display = 'inline-block';
+    cancelBtn.style.display = 'none';
+    saveBtn.style.display = 'none';
+    document.getElementById('questionNav').style.display = 'flex';
+
+    document.querySelectorAll('#answersList .answer-item').forEach(item => {
+      item.classList.remove('bg-emerald-200','font-semibold','text-emerald-600','hover:bg-emerald-100');
+      item.classList.add('text-gray-700');
+    });
+
+    // Odstraň input, pokud existuje
+    const inputLi = document.getElementById('newAnswerInput')?.parentNode;
+    if (inputLi) inputLi.remove();
+
+    selectedAnswerIndex = null;
+  });
+}
+
+function selectAnswer(event) {
+  if (!editMode) return;
+
+  document.querySelectorAll('#answersList .answer-item').forEach(item => {
+    item.classList.remove('bg-emerald-200','font-semibold','text-emerald-600');
+    item.classList.add('text-gray-700');
+  });
+
+  const li = event.currentTarget;
+  li.classList.add('bg-emerald-200','font-semibold','text-emerald-600');
+  li.classList.remove('text-gray-700');
+  selectedAnswerIndex = li.dataset.index;
+}
+
+saveBtn.addEventListener('click', async () => {
+  let newAnswer;
+  const inputField = document.getElementById('newAnswerInput');
+
+  if (inputField) {
+    newAnswer = inputField.value.trim();
+    if (!newAnswer) { 
+      alert('Zadejte odpověď'); 
+      return; 
+    }
+  } else if (selectedAnswerIndex !== null) {
+    // ❌ místo textContent bereme čistou odpověď z data-answer
+    const li = document.querySelector(`#answersList .answer-item[data-index="${selectedAnswerIndex}"]`);
+    newAnswer = li.dataset.answer.trim(); // <<< tady je fix
+  } else {
+    alert('Vyberte odpověď'); 
+    return;
+  }
+
+  const response = await fetch(`/api/exam/<%= @test[:test_id] %>/<%= @question[:answer_id] %>/answer_update`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answer: newAnswer })
+  });
+
+  if (response.ok) {
+    location.reload();
+  } else {
+    alert('Nepodařilo se upravit odpověď.');
+  }
+});
+</script>
+
+</body>
+</html>

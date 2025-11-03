@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>Testy | Exam Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center px-4 py-6 text-gray-800">
+
+  <main class="w-full max-w-3xl">
+    
+    <!-- Header -->
+    <header class="text-center mb-6">
+      <h1 class="text-2xl sm:text-3xl font-semibold text-emerald-600">Dostupné testy</h1>
+    </header>
+
+    <!-- Seznam testů -->
+    <section class="flex flex-col gap-4">
+      <% @tests.each do |test| %>
+        <div onclick="window.location='/exam/<%= test[:test_id] %>'"
+             class="flex justify-between items-center bg-white rounded-xl shadow-md p-4 cursor-pointer hover:bg-emerald-50 transition">
+          
+          <div class="flex flex-col">
+            <h2 class="text-lg font-medium text-gray-900"><%= test[:exam_name] %></h2>
+            <p class="text-sm text-gray-500">Otázek: <%= test[:question_count] %></p>
+          </div>
+
+          <div class="text-2xl text-gray-400 select-none">›</div>
+        </div>
+      <% end %>
+    </section>
+
+    <% if @tests.empty? %>
+      <div class="text-center mt-12 bg-white rounded-xl shadow-md p-8">
+        <p class="text-gray-500 text-lg">Žádné testy nebyly nalezeny.</p>
+      </div>
+    <% end %>
+
+  </main>
+
+</body>
+</html>

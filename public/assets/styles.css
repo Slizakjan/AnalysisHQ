@@ -1,0 +1,138 @@
+/* --- Global --- */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  margin: 0;
+  padding: 20px;
+  background: #f0f2f5;
+  color: #333;
+}
+
+/* --- Forms --- */
+.form-container {
+  max-width: 360px;
+  margin: 40px auto;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  transition: transform 0.2s;
+}
+
+.form-container:hover {
+  transform: translateY(-3px);
+}
+
+form { display: none; }
+form.active { display: block; }
+
+input {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 0.95em;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: none;
+  font-weight: bold;
+  font-size: 0.95em;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+button.api-btn {
+  background-color: #2196F3;
+  color: #fff;
+}
+
+button.api-btn:hover {
+  background-color: #1976D2;
+}
+
+a {
+  cursor: pointer;
+  color: #007bff;
+  text-decoration: none;
+  font-size: 0.9em;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* --- Messages --- */
+#message {
+  margin-top: 12px;
+  padding: 10px;
+  background-color: #ffecec;
+  border: 1px solid #f5c6cb;
+  border-radius: 6px;
+  font-size: 0.9em;
+}
+
+/* --- Dashboard --- */
+#dashboard-container {
+  max-width: 1000px;
+  margin: 40px auto;
+  padding: 20px;
+}
+
+#dashboard-container h2 {
+  margin-bottom: 20px;
+  font-size: 1.8em;
+  color: #333;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 10px;
+}
+
+/* --- Test cards --- */
+.test-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+  padding: 20px;
+  margin-bottom: 20px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.test-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+}
+
+.test-card h3 {
+  margin-top: 0;
+  font-size: 1.2em;
+}
+
+.test-card p {
+  font-size: 0.95em;
+  color: #555;
+}
+
+/* --- Grid layout for cards --- */
+#tests-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+/* --- Status --- */
+#status {
+  margin-top: 15px;
+  padding: 12px;
+  background-color: #f7f9fc;
+  border-radius: 6px;
+  white-space: pre-wrap;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9em;
+}
