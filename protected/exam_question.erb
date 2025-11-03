@@ -146,7 +146,7 @@ if (editBtn) {
     document.getElementById('questionNav').style.display = 'none';
 
     const answersList = document.getElementById('answersList');
-    const existingAnswer = "<%= @question[:answer] || '' %>";
+    const existingAnswer = <%= (@question[:answer] || []).to_json %>;
 
     // Pokud žádné odpovědi nebo jen jedna (otevřená odpověď)
     if (answersList.querySelector('li.italic') || answersList.querySelectorAll('li.answer-item').length <= 1) {

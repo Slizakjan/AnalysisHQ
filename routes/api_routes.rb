@@ -47,40 +47,46 @@ class ApiRoutes < Sinatra::Base
     begin
       data = JSON.parse(request.body.read)
       test_name   = data["test_name"]
-      test_id   = data["test_id"]
-      answer_id = data["answer_id"]
-      action    = data["action"]
-      metadata  = data["metadata"] || {}
+      test_id     = data["test_id"]
+      answer_id   = data["answer_id"]
+      action      = data["action"]
+      metadata    = data["metadata"] || {}
 
-      question  = data["question"]
-      answers   = data["answers"]
+      question    = data["question"]
+      options     = data["answers"] || []
+      type        = data["type"] || "radio"
+      correct     = data["correct_answer"]
     rescue JSON::ParserError
       halt 400, { status: "error", message: "Invalid JSON" }.to_json
     end
 
-    # ✅ Povinná validace question a answers
-    is_closed = !["short", "descriptive"].include?(data["type"])
-
-    if !question || (is_closed && (!answers || !answers.is_a?(Array) || answers.empty?))
-      halt 400, { status: "error", message: "Both 'question' and 'answers' must be provided for closed questions" }.to_json
+    # ✅ Povinná validace
+    if !question || question.strip.empty?
+      halt 400, { status: "error", message: "Missing 'question'" }.to_json
     end
 
+    # ✅ Pro uzavřené otázky musí být k dispozici možnosti
+    if ["radio", "checkbox"].include?(type) && (!options.is_a?(Array) || options.empty?)
+      halt 400, { status: "error", message: "Closed question must include 'answers' array" }.to_json
+    end
 
-    # === Vložení do question_bank ===
+    # === Uložení do question_bank ===
     begin
       Database.insert_question(
         user_id: user[:id],
         test_id: test_id,
         answer_id: answer_id,
-        question_json: { question: question },
-        answer_json: answers,
-        exam_name: test_name,
+        question: question,
+        options: options,
+        type: type,
+        correct_answer: correct,
+        exam_name: test_name
       )
     rescue PG::Error => e
       halt 500, { status: "error", message: "DB error inserting question: #{e.message}" }.to_json
     end
 
-    # === Vložení do api_answer_logs ===
+    # === Uložení logu ===
     clean_metadata = metadata.dup
     clean_metadata.delete("question")
     clean_metadata.delete("answers")
@@ -142,44 +148,31 @@ class ApiRoutes < Sinatra::Base
   # Endpoint pro hledání odpovědi podle test_id a answer_id
   # ----------------------
   post '/api/search' do
-    user = api_user  # ✅ ověří API klíč, roli i lock status
+    user = api_user
 
     begin
       data = JSON.parse(request.body.read)
       test_id   = data["test_id"]
       answer_id = data["answer_id"]
-
       halt 400, { status: "error", message: "Missing test_id or answer_id" }.to_json unless test_id && answer_id
     rescue JSON::ParserError
       halt 400, { status: "error", message: "Invalid JSON" }.to_json
     end
 
     begin
-      result = DB.exec_params(
-        "SELECT question_json FROM question_bank WHERE test_id = $1 AND answer_id = $2 LIMIT 1",
-        [test_id, answer_id]
-      )
-
-      if result.any?
-        question_data = result[0]["question_json"]
-        parsed = JSON.parse(question_data) rescue {}
-
-        answer_text = parsed["answer"] || "No answer stored"
-
-        content_type :json
-        { status: "ok", answer: answer_text }.to_json
+      question = Database.get_question_by_id(test_id, answer_id)
+      if question
+        { status: "ok", answer: question[:correct_answer] || "No correct answer stored" }.to_json
       else
-        content_type :json
-        { status: "not_found", message: "No answer found for this test_id and answer_id" }.to_json
+        { status: "not_found", message: "No record found" }.to_json
       end
     rescue PG::Error => e
       halt 500, { status: "error", message: "Database error: #{e.message}" }.to_json
     end
   end
 
-
   # ----------------------
-  # Endpoint pro aktualizaci odpovědi u otázky
+  # Endpoint pro aktualizaci správné odpovědi u otázky
   # ----------------------
   post '/api/exam/:test_id/:answer_id/answer_update' do
     user = current_user
@@ -198,31 +191,16 @@ class ApiRoutes < Sinatra::Base
 
     halt 400, { status: "error", message: "Missing 'answer'" }.to_json if new_answer.nil? || new_answer.empty?
 
-    # Načtení stávající question_json z databáze
+    # Kontrola, že otázka existuje
     question_row = Database.get_question_by_id(test_id, answer_id)
     halt 404, { status: "error", message: "Question not found" }.to_json unless question_row
 
-    # Parsování JSON na hash
-    question_json = {}
-    if question_row[:question_json].is_a?(String)
-      begin
-        question_json = JSON.parse(question_row[:question_json])
-      rescue JSON::ParserError
-        question_json = {}
-      end
-    elsif question_row[:question_json].is_a?(Hash)
-      question_json = question_row[:question_json]
-    end
-
-    # Uložení nové odpovědi
-    question_json["answer"] = new_answer
-
-    # Update do databáze (převedeno zpět na JSON string)
+    # Aktualizace správné odpovědi
     begin
       Database.update_question_answer(
         test_id: test_id,
         answer_id: answer_id,
-        question_json: JSON.generate(question_json)
+        correct_answer: new_answer
       )
     rescue PG::Error => e
       halt 500, { status: "error", message: "Database error: #{e.message}" }.to_json
@@ -231,6 +209,7 @@ class ApiRoutes < Sinatra::Base
     content_type :json
     { status: "ok", message: "Answer updated successfully" }.to_json
   end
+
 
   # ----------------------
   # Admin-only endpoint

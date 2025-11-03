@@ -72,19 +72,24 @@ module Database
   # Vrací všechny otázky pro daný test
   def self.get_questions_for_test(test_id)
     result = DB.exec_params("SELECT * FROM question_bank WHERE test_id = $1 ORDER BY created_at", [test_id])
-    
+
     result.map do |row|
       {
         answer_id: row['answer_id'],
         test_id: row['test_id'],
         exam_name: row['exam_name'],
         question: row['question'] || "",
-        options: row['options'] ? JSON.parse(row['options']) : [],
+        options: begin
+          JSON.parse(row['options'] || "[]")
+        rescue JSON::ParserError
+          []
+        end,
         correct_answer: row['correct_answer'],
         type: row['type'] || 'radio'
       }
     end
   end
+
 
   # Vrací jednu otázku podle test_id a answer_id
   def self.get_question_by_id(test_id, answer_id)
@@ -108,15 +113,12 @@ module Database
   end
 
   # Aktualizuje otázku
-  def self.update_question_answer(test_id:, answer_id:, question:, options:, correct_answer:, type:)
+  def self.update_question_answer(test_id:, answer_id:, correct_answer:)
     DB.exec_params(
       "UPDATE question_bank
-       SET question = $1,
-           options = $2::jsonb,
-           correct_answer = $3,
-           type = $4
-       WHERE test_id = $5 AND answer_id = $6",
-      [question, JSON.dump(options), correct_answer, type, test_id, answer_id]
+      SET correct_answer = $1
+      WHERE test_id = $2 AND answer_id = $3",
+      [correct_answer, test_id, answer_id]
     )
   end
 

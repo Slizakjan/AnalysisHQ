@@ -42,115 +42,96 @@ class UserRoutes < Sinatra::Base
     erb :dashboard
   end
 
-  get '/dashboard/:test_id' do
-    user = current_user
-    Permissions.authorize!(user, ["user", "manager", "admin"])
+    # ----------------------
+    # Seznam všech testů
+    # ----------------------
+    get '/exam' do
+      user = current_user
+      Permissions.authorize!(user, ["user", "manager", "admin"])
 
-    test_id = params[:test_id]
-    
-    # získáme test a jeho otázky
-    @test = Database.get_test_by_id(test_id) # vytvořit v database.rb
-    @questions = Database.get_questions_for_test(test_id) # vytvořit v database.rb
+      @tests = Database.get_all_tests
 
-    content_type 'text/html'
-    erb :dashboard_test
-  end
-
-  get '/exam' do
-    user = current_user
-    Permissions.authorize!(user, ["user", "manager", "admin"])
-
-    @tests = Database.get_all_tests
-
-    content_type 'text/html'
-    erb :exam_index
-  end
-
-  # routes/exam_routes.rb
-  get '/exam/:test_id' do
-    user = current_user
-    # povolené role: user, manager, admin
-    Permissions.authorize!(user, ["user", "manager", "admin"])
-
-    test_id = params[:test_id]
-
-    # Získání testu a otázek z databáze
-    @test = Database.get_test_by_id(test_id)            # Hash s detailem testu
-    @questions = Database.get_questions_for_test(test_id) # Pole hashů otázek
-
-    if @test.nil?
-      status 404
-      return "Test nenalezen"
+      content_type 'text/html'
+      erb :exam_index
     end
 
-    content_type 'text/html'
-    erb :exam_detail # název tvého ERB souboru s Tailwind designem
-  end
+    # ----------------------
+    # Detail konkrétního testu
+    # ----------------------
+    get '/exam/:test_id' do
+      user = current_user
+      Permissions.authorize!(user, ["user", "manager", "admin"])
 
-  get '/exam/:test_id/:answer_id' do
-    @user = current_user
-    Permissions.authorize!(@user, ["user", "manager", "admin"])
+      test_id = params[:test_id]
 
-    test_id = params[:test_id]
-    answer_id = params[:answer_id]
+      @test = Database.get_test_by_id(test_id)
+      @questions = Database.get_questions_for_test(test_id)
 
-    @logs = Database.get_logs_for_question(test_id, answer_id)
+      if @test.nil?
+        status 404
+        return "Test nenalezen"
+      end
 
-    @test = Database.get_test_by_id(test_id)
-    @questions = Database.get_questions_for_test(test_id)
+      content_type 'text/html'
+      erb :exam_detail
+    end
 
-    @question = @questions.find { |q| q[:answer_id] == answer_id }
-    halt 404, "Otázka nenalezena" if @question.nil?
+    # ----------------------
+    # Detail konkrétní otázky
+    # ----------------------
+    get '/exam/:test_id/:answer_id' do
+      @user = current_user
+      Permissions.authorize!(@user, ["user", "manager", "admin"])
 
-    # Parsování answer_json pro seznam možností
-    @question[:answers] = begin
-      case @question[:answer_json]
-      when String
-        JSON.parse(@question[:answer_json])
-      when Array
-        @question[:answer_json]
-      else
+      test_id = params[:test_id]
+      answer_id = params[:answer_id]
+
+      @logs = Database.get_logs_for_question(test_id, answer_id)
+      @test = Database.get_test_by_id(test_id)
+      @questions = Database.get_questions_for_test(test_id)
+
+      @question = @questions.find { |q| q[:answer_id] == answer_id }
+      halt 404, "Otázka nenalezena" if @question.nil?
+
+      # --- Nové názvy sloupců ---
+      # `options` = JSONB (seznam možných odpovědí)
+      # `question` = TEXT (text otázky)
+      # `correct_answer` = TEXT (správná odpověď)
+      # `type` = typ otázky (radio, checkbox, short, descriptive)
+
+      # Získání seznamu odpovědí z JSONB `options`
+      @question[:answers] = begin
+        case @question[:options]
+        when String
+          JSON.parse(@question[:options])
+        when Array
+          @question[:options]
+        else
+          []
+        end
+      rescue JSON::ParserError
         []
       end
-    rescue JSON::ParserError
-      []
+
+      # Správná odpověď – vždy pole (i pro single)
+      correct_answer = case @question[:correct_answer]
+                      when String
+                        [@question[:correct_answer].strip]
+                      when Array
+                        @question[:correct_answer].map(&:strip)
+                      else
+                        []
+                      end
+      @question[:answer] = correct_answer
+
+      # Navigace mezi otázkami
+      current_index = @questions.index(@question)
+      @question_index = current_index
+      @questions_count = @questions.size
+      @prev_question_id = current_index > 0 ? @questions[current_index - 1][:answer_id] : nil
+      @next_question_id = current_index < @questions.size - 1 ? @questions[current_index + 1][:answer_id] : nil
+
+      content_type 'text/html'
+      erb :exam_question
     end
-
-    # Parsování question_json pro správnou odpověď
-    correct_answer = begin
-      parsed_question_json = case @question[:question_json]
-                            when String
-                              JSON.parse(@question[:question_json])
-                            when Hash
-                              @question[:question_json]
-                            else
-                              {}
-                            end
-      # Může být jedna odpověď nebo pole více správných odpovědí
-      ans = parsed_question_json['answer']
-      case ans
-      when String
-        [ans.strip]
-      when Array
-        ans.map(&:to_s).map(&:strip)
-      else
-        []
-      end
-    rescue JSON::ParserError
-      []
-    end
-
-    @question[:answer] = correct_answer # vždy array, i když jen jedna odpověď
-
-    # Navigace mezi otázkami
-    current_index = @questions.index(@question)
-    @question_index = current_index
-    @questions_count = @questions.size
-    @prev_question_id = current_index > 0 ? @questions[current_index - 1][:answer_id] : nil
-    @next_question_id = current_index < @questions.size - 1 ? @questions[current_index + 1][:answer_id] : nil
-
-    content_type 'text/html'
-    erb :exam_question
-  end
-
 end
