@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Dashboard - Přehled testů</h1>
+
+    <div class="test-grid">
+      <% @tests.each do |test| %>
+        <div class="test-card" onclick="window.location='/dashboard/<%= test[:test_id] %>'">
+          <h2><%= test[:exam_name] %></h2>
+          <p>ID: <%= test[:test_id] %></p>
+          <p>Otázek: <%= test[:question_count] %></p>
+          <p>Uživatelé: <%= test[:user_count] %></p>
+          <p>Poslední změna: <%= test[:last_added_at] %></p>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</body>
+</html>

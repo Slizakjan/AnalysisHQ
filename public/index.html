@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>AnalysisHQ Authentication</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>
 
@@ -52,18 +52,15 @@ async function login() {
 
     const data = await res.json();
 
-    if (data.status === 'ok') {
-      localStorage.setItem('api_key', data.api_key);
-      localStorage.setItem('role', data.role);
-      document.getElementById("message").style.color = 'green';
-      document.getElementById("message").innerText = `Login successful! Role: ${data.role}`;
-      setTimeout(() => { 
-        document.querySelector('.form-container').style.display = 'none';
-        document.getElementById('dashboard-container').style.display = 'block';
-      }, 500);
+    if (res.ok && data.status === 'ok') {
+        document.getElementById("message").style.color = 'green';
+        document.getElementById("message").innerText = `Login successful! Role: ${data.role}`;
+
+        // ✅ Přesměrování na dashboard
+        window.location.href = '/dashboard';
     } else {
       document.getElementById("message").style.color = '#d9534f';
-      document.getElementById("message").innerText = data.error || 'Unknown error';
+      document.getElementById("message").innerText = data.message || 'Invalid credentials';
     }
   } catch (err) {
     console.error(err);
@@ -86,13 +83,13 @@ async function register() {
 
     const data = await res.json();
 
-    if (data.status === 'ok') {
+    if (res.ok && data.status === 'ok') {
       document.getElementById("message").style.color = 'green';
-      document.getElementById("message").innerText = `Account created! Your API key: ${data.api_key}`;
+      document.getElementById("message").innerText = `Account created! Role: ${data.role}`;
       toggleForm(); // přepne na login po registraci
     } else {
       document.getElementById("message").style.color = '#d9534f';
-      document.getElementById("message").innerText = data.error || 'Unknown error';
+      document.getElementById("message").innerText = data.message || 'Username already exists';
     }
   } catch (err) {
     console.error(err);
